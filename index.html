@@ -346,6 +346,26 @@
         <button class="btn btn-primary btn-block" id="authSubmitBtn" style="margin-top:6px;">Masuk</button>
         <p class="muted" id="authSwitchLine" style="text-align:center; margin-top:14px;"></p>
       </div>
+
+      <div style="margin-top:14px;">
+        <div class="btn btn-ghost btn-block btn-sm" onclick="toggleAuthSyncPanel()">🔄 Sinkronkan dari Google (HP baru)</div>
+        <div id="authSyncBody" style="display:none; margin-top:10px;">
+          <div class="card">
+            <p class="hint" style="margin:0 0 10px 0;">Gunakan ini di HP owner/karyawan yang baru pertama kali dipakai, supaya data toko (barang, transaksi, & daftar akun) tertarik dari cloud sebelum login.</p>
+            <div id="authFbConfigWrap">
+              <div class="field">
+                <label>Tempel konfigurasi Firebase (sekali per HP, minta salinannya dari admin)</label>
+                <textarea id="authFbConfigInput" rows="4" placeholder='{"apiKey":"...","authDomain":"...","projectId":"..."}'></textarea>
+              </div>
+              <button class="btn btn-ghost btn-block btn-sm" onclick="saveFirebaseConfigFromAuth()">Simpan Konfigurasi</button>
+            </div>
+            <div id="authFbActionsWrap" style="display:none;">
+              <p class="muted" id="authCloudStatus" style="margin:6px 0;">Belum terhubung ke Google</p>
+              <button class="btn btn-primary btn-block btn-sm" onclick="cloudSignInAndDownloadFromAuth()">Masuk Google & Unduh Data</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1978,8 +1998,57 @@ async function maybeAutoPullOnFirstRun(){
 }
 function renderCloudStatus(){
   const el = document.getElementById('cloudStatus');
-  if(!el) return;
-  el.textContent = fbUser ? ('Terhubung sebagai '+(fbUser.email||fbUser.displayName)) : 'Belum terhubung ke Google';
+  if(el) el.textContent = fbUser ? ('Terhubung sebagai '+(fbUser.email||fbUser.displayName)) : 'Belum terhubung ke Google';
+  renderAuthCloudStatus();
+}
+
+/* ---- cloud sync entry point available directly on the login screen,
+   so a brand-new phone (owner/karyawan) can pull down store data
+   (items, transactions, deliveries, users, categories) before
+   ever logging into the app itself ---- */
+function toggleAuthSyncPanel(){
+  const body = document.getElementById('authSyncBody');
+  const willShow = body.style.display==='none';
+  body.style.display = willShow ? 'block' : 'none';
+  document.getElementById('authFbConfigWrap').style.display = fbApp ? 'none' : 'block';
+  document.getElementById('authFbActionsWrap').style.display = fbApp ? 'block' : 'none';
+  renderAuthCloudStatus();
+}
+async function saveFirebaseConfigFromAuth(){
+  const raw = document.getElementById('authFbConfigInput').value.trim();
+  let cfg;
+  try{ cfg = JSON.parse(raw); }
+  catch(e){ toast('Format konfigurasi tidak valid (harus JSON)'); return; }
+  await storeSet('firebase-config', cfg);
+  toast('Konfigurasi disimpan. Memuat ulang...');
+  setTimeout(()=>location.reload(), 800);
+}
+async function cloudSignInAndDownloadFromAuth(){
+  if(!fbAuthObj){ toast('Simpan konfigurasi Firebase dulu'); return; }
+  try{
+    const provider = new firebase.auth.GoogleAuthProvider();
+    await fbAuthObj.signInWithPopup(provider);
+  }catch(e){ toast('Gagal masuk Google: '+e.message); return; }
+  renderAuthCloudStatus();
+  if(!fbUser) return;
+  try{
+    const snap = await cloudDocRef().get();
+    if(!snap.exists){ toast('Belum ada data toko di cloud untuk akun Google ini'); return; }
+    const d = snap.data();
+    items = d.items||[];
+    transactions = (d.transactions||[]).map(migrateTx);
+    deliveries = d.deliveries||[];
+    usersData = d.users||usersData;
+    categories = d.categories||categories;
+    await persistItemsRaw(); await persistTxRaw(); await persistDeliveriesRaw(); await persistUsersRaw(); await persistCategoriesRaw();
+    toast('Data toko berhasil disinkronkan. Silakan login.');
+    document.getElementById('authSyncBody').style.display='none';
+    renderAuthScreen();
+  }catch(e){ toast('Gagal sinkron: '+e.message); }
+}
+function renderAuthCloudStatus(){
+  const el = document.getElementById('authCloudStatus');
+  if(el) el.textContent = fbUser ? ('Terhubung sebagai '+(fbUser.email||fbUser.displayName)) : 'Belum terhubung ke Google';
 }
 
 /* =========================================================
