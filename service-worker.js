@@ -1,4 +1,4 @@
-const CACHE_NAME = 'toko-syaeva-v3';
+const CACHE_NAME = 'toko-syaeva-v4';
 const ASSETS = [
   './index.html',
   './manifest.json',

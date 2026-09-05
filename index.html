@@ -11,9 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root{
     --bg:#F6F1E7;
@@ -348,20 +346,26 @@
       </div>
 
       <div style="margin-top:14px;">
-        <div class="btn btn-ghost btn-block btn-sm" onclick="toggleAuthSyncPanel()">🔄 Sinkronkan dari Google (HP baru)</div>
+        <div class="btn btn-ghost btn-block btn-sm" onclick="toggleAuthSyncPanel()">🔄 Sinkronkan dari Cloud (HP baru)</div>
         <div id="authSyncBody" style="display:none; margin-top:10px;">
           <div class="card">
             <p class="hint" style="margin:0 0 10px 0;">Gunakan ini di HP owner/karyawan yang baru pertama kali dipakai, supaya data toko (barang, transaksi, & daftar akun) tertarik dari cloud sebelum login.</p>
-            <div id="authFbConfigWrap">
+            <div id="authSbConfigWrap">
               <div class="field">
-                <label>Tempel konfigurasi Firebase (sekali per HP, minta salinannya dari admin)</label>
-                <textarea id="authFbConfigInput" rows="4" placeholder='{"apiKey":"...","authDomain":"...","projectId":"..."}'></textarea>
+                <label>Project URL Supabase (sekali per HP, minta dari admin)</label>
+                <input type="text" id="authSbUrlInput" placeholder="https://xxxxx.supabase.co">
               </div>
-              <button class="btn btn-ghost btn-block btn-sm" onclick="saveFirebaseConfigFromAuth()">Simpan Konfigurasi</button>
+              <div class="field">
+                <label>Anon public key</label>
+                <input type="text" id="authSbKeyInput" placeholder="eyJhbGciOi...">
+              </div>
+              <button class="btn btn-ghost btn-block btn-sm" onclick="saveSupabaseConfigFromAuth()">Simpan Konfigurasi</button>
             </div>
-            <div id="authFbActionsWrap" style="display:none;">
-              <p class="muted" id="authCloudStatus" style="margin:6px 0;">Belum terhubung ke Google</p>
-              <button class="btn btn-primary btn-block btn-sm" onclick="cloudSignInAndDownloadFromAuth()">Masuk Google & Unduh Data</button>
+            <div id="authSbActionsWrap" style="display:none;">
+              <p class="muted" id="authCloudStatus" style="margin:6px 0;">Belum masuk akun cloud</p>
+              <div class="field"><label>Email akun cloud</label><input type="email" id="authCloudEmail" placeholder="dari admin"></div>
+              <div class="field"><label>Kata sandi akun cloud</label><input type="password" id="authCloudPass"></div>
+              <button class="btn btn-primary btn-block btn-sm" onclick="cloudSignInAndDownloadFromAuth()">Masuk & Unduh Data</button>
             </div>
           </div>
         </div>
@@ -579,22 +583,31 @@
       </div>
 
       <div class="settings-block">
-        <h3>Sinkronisasi Cloud (Akun Google)</h3>
-        <p class="hint">Hubungkan akun Google agar data toko tersimpan di cloud dan bisa dipulihkan di perangkat lain walau aplikasi ini dihapus. Perlu konfigurasi Firebase sekali saja (gratis, dibuat sendiri di console.firebase.google.com).</p>
+        <h3>Sinkronisasi Cloud (Supabase — gratis, tanpa kartu)</h3>
+        <p class="hint">Buat "akun cloud" (bebas email & kata sandi, tidak harus Gmail) supaya data toko tersimpan online dan bisa dipulihkan di HP lain / setelah aplikasi dihapus. Perlu buat project Supabase gratis sekali saja di supabase.com.</p>
         <div class="card">
-          <div id="fbConfigWrap">
+          <div id="sbConfigWrap">
             <div class="field">
-              <label>Konfigurasi Firebase (JSON, tempel dari Firebase Console → Project settings → SDK config)</label>
-              <textarea id="fbConfigInput" rows="4" placeholder='{"apiKey":"...","authDomain":"...","projectId":"...","storageBucket":"...","messagingSenderId":"...","appId":"..."}'></textarea>
+              <label>Project URL Supabase</label>
+              <input type="text" id="sbUrlInput" placeholder="https://xxxxx.supabase.co">
             </div>
-            <button class="btn btn-ghost btn-block" onclick="saveFirebaseConfig()">Simpan Konfigurasi</button>
+            <div class="field">
+              <label>Anon public key</label>
+              <input type="text" id="sbKeyInput" placeholder="eyJhbGciOi...">
+            </div>
+            <button class="btn btn-ghost btn-block" onclick="saveSupabaseConfig()">Simpan Konfigurasi</button>
           </div>
           <div class="divider"></div>
-          <p class="muted" id="cloudStatus">Belum terhubung ke Google</p>
-          <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
-            <button class="btn btn-primary btn-sm" style="flex:1;" onclick="cloudSignIn()">Masuk Google</button>
-            <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="cloudSignOut()">Keluar</button>
+          <p class="muted" id="cloudStatus">Belum masuk akun cloud</p>
+          <div id="cloudAuthForm">
+            <div class="field"><label>Email akun cloud</label><input type="email" id="cloudEmail" placeholder="toko@contoh.com"></div>
+            <div class="field"><label>Kata sandi akun cloud</label><input type="password" id="cloudPass" placeholder="minimal 6 karakter"></div>
+            <div style="display:flex; gap:8px; margin-top:4px; flex-wrap:wrap;">
+              <button class="btn btn-primary btn-sm" style="flex:1;" onclick="cloudSignUp()">Buat Akun Cloud Baru</button>
+              <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="cloudSignIn()">Masuk Akun Cloud</button>
+            </div>
           </div>
+          <button class="btn btn-ghost btn-block" style="margin-top:8px;" onclick="cloudSignOut()">Keluar dari Akun Cloud</button>
           <div style="display:flex; gap:8px; margin-top:8px;">
             <button class="btn btn-amber btn-sm" style="flex:1;" onclick="cloudUpload()">⬆ Unggah ke Cloud</button>
             <button class="btn btn-amber btn-sm" style="flex:1;" onclick="cloudDownload()">⬇ Unduh dari Cloud</button>
@@ -888,7 +901,7 @@ async function initAuth(){
   categories = (await storeGet('categories')) || categories;
   authRole = 'admin';
   renderAuthScreen();
-  await initFirebaseFromStorage();
+  await initSupabaseFromStorage();
 }
 
 async function registerAdmin(){
@@ -1902,68 +1915,92 @@ function renderSettings(){
   const catExpWrap = document.getElementById('catExpenseList');
   catExpWrap.innerHTML = categories.expense.map(c=>`<div class="cat-mgmt-row"><span>${c}</span><button onclick="deleteCategory('expense','${c.replace(/'/g,"\\'")}')">✕</button></div>`).join('');
 
-  const fbCfgWrap = document.getElementById('fbConfigWrap');
-  fbCfgWrap.style.display = fbApp ? 'none' : 'block';
+  const sbCfgWrap = document.getElementById('sbConfigWrap');
+  sbCfgWrap.style.display = sbClient ? 'none' : 'block';
+  document.getElementById('cloudAuthForm').style.display = sbUser ? 'none' : 'block';
   renderCloudStatus();
 }
 
 /* =========================================================
-   CLOUD SYNC (Firebase Auth + Firestore, via Google account)
+   CLOUD SYNC (Supabase Auth + Postgres table, no credit card needed)
 ========================================================= */
-let fbApp=null, fbAuthObj=null, fbDb=null, fbUser=null, autoSyncTimer=null;
+let sbClient=null, sbUser=null, autoSyncTimer=null;
 
-async function initFirebaseFromStorage(){
-  const cfg = await storeGet('firebase-config');
-  if(!cfg) return;
+async function initSupabaseFromStorage(){
+  const cfg = await storeGet('supabase-config');
+  if(!cfg || !cfg.url || !cfg.anonKey) return;
   try{
-    fbApp = firebase.initializeApp(cfg);
-    fbAuthObj = firebase.auth();
-    fbDb = firebase.firestore();
-    fbAuthObj.onAuthStateChanged(u=>{
-      fbUser = u;
+    sbClient = supabase.createClient(cfg.url, cfg.anonKey);
+    const { data } = await sbClient.auth.getSession();
+    sbUser = data && data.session ? data.session.user : null;
+    renderCloudStatus();
+    if(sbUser) maybeAutoPullOnFirstRun();
+    sbClient.auth.onAuthStateChange((event, session)=>{
+      sbUser = session ? session.user : null;
       renderCloudStatus();
-      if(u) maybeAutoPullOnFirstRun();
     });
   }catch(e){
-    console.error('Firebase init error', e);
+    console.error('Supabase init error', e);
   }
 }
-async function saveFirebaseConfig(){
-  const raw = document.getElementById('fbConfigInput').value.trim();
-  let cfg;
-  try{ cfg = JSON.parse(raw); }
-  catch(e){ toast('Format konfigurasi tidak valid (harus JSON)'); return; }
-  await storeSet('firebase-config', cfg);
+async function saveSupabaseConfig(){
+  const url = document.getElementById('sbUrlInput').value.trim();
+  const anonKey = document.getElementById('sbKeyInput').value.trim();
+  if(!url || !anonKey){ toast('Isi Project URL dan Anon key'); return; }
+  await storeSet('supabase-config', {url, anonKey});
   toast('Konfigurasi cloud disimpan. Memuat ulang...');
   setTimeout(()=>location.reload(), 800);
 }
-async function cloudSignIn(){
-  if(!fbAuthObj){ toast('Isi & simpan konfigurasi Firebase dulu'); return; }
+async function cloudSignUp(){
+  if(!sbClient){ toast('Isi & simpan konfigurasi Supabase dulu'); return; }
+  const email = document.getElementById('cloudEmail').value.trim();
+  const pass = document.getElementById('cloudPass').value;
+  if(!email || pass.length<6){ toast('Isi email & kata sandi (minimal 6 karakter)'); return; }
   try{
-    const provider = new firebase.auth.GoogleAuthProvider();
-    await fbAuthObj.signInWithPopup(provider);
-    toast('Berhasil masuk dengan Google');
-  }catch(e){ toast('Gagal masuk Google: '+e.message); }
+    const { data, error } = await sbClient.auth.signUp({ email, password: pass });
+    if(error) throw error;
+    if(!data.session){ toast('Akun dibuat. Cek email untuk konfirmasi, lalu tekan "Masuk Akun Cloud".'); return; }
+    sbUser = data.session.user;
+    renderCloudStatus();
+    toast('Akun cloud berhasil dibuat & masuk');
+  }catch(e){ toast('Gagal membuat akun: '+e.message); }
+}
+async function cloudSignIn(){
+  if(!sbClient){ toast('Isi & simpan konfigurasi Supabase dulu'); return; }
+  const email = document.getElementById('cloudEmail').value.trim();
+  const pass = document.getElementById('cloudPass').value;
+  if(!email || !pass){ toast('Isi email & kata sandi akun cloud'); return; }
+  try{
+    const { data, error } = await sbClient.auth.signInWithPassword({ email, password: pass });
+    if(error) throw error;
+    sbUser = data.session.user;
+    renderCloudStatus();
+    toast('Berhasil masuk akun cloud');
+  }catch(e){ toast('Gagal masuk: '+e.message); }
 }
 async function cloudSignOut(){
-  if(fbAuthObj) await fbAuthObj.signOut();
-  toast('Keluar dari akun Google');
+  if(sbClient) await sbClient.auth.signOut();
+  sbUser = null;
+  renderCloudStatus();
+  toast('Keluar dari akun cloud');
 }
-function cloudDocRef(){ return fbDb.collection('toko-syaeva-stores').doc(fbUser.uid); }
 async function cloudUpload(){
-  if(!fbUser){ toast('Masuk dengan Google dulu'); return; }
+  if(!sbUser){ toast('Masuk akun cloud dulu'); return; }
   try{
-    await cloudDocRef().set({ items, transactions, deliveries, users:usersData, categories, updatedAt: Date.now() });
+    const payload = { items, transactions, deliveries, users:usersData, categories };
+    const { error } = await sbClient.from('stores').upsert({ id: sbUser.id, data: payload, updated_at: new Date().toISOString() });
+    if(error) throw error;
     toast('Data berhasil diunggah ke cloud');
   }catch(e){ toast('Gagal unggah: '+e.message); }
 }
 async function cloudDownload(force){
-  if(!fbUser){ toast('Masuk dengan Google dulu'); return; }
+  if(!sbUser){ toast('Masuk akun cloud dulu'); return; }
   if(!force && !confirm('Unduh data dari cloud akan menimpa data di perangkat ini. Lanjutkan?')) return;
   try{
-    const snap = await cloudDocRef().get();
-    if(!snap.exists){ toast('Belum ada data di cloud untuk akun ini'); return; }
-    const d = snap.data();
+    const { data, error } = await sbClient.from('stores').select('data').eq('id', sbUser.id).maybeSingle();
+    if(error) throw error;
+    if(!data){ toast('Belum ada data di cloud untuk akun ini'); return; }
+    const d = data.data;
     items = d.items||[];
     transactions = (d.transactions||[]).map(migrateTx);
     deliveries = d.deliveries||[];
@@ -1982,23 +2019,23 @@ async function persistUsersRaw(){ await storeSet('users', usersData); }
 async function persistCategoriesRaw(){ await storeSet('categories', categories); }
 
 function scheduleAutoSync(){
-  if(!fbUser) return;
+  if(!sbUser) return;
   clearTimeout(autoSyncTimer);
   autoSyncTimer = setTimeout(cloudUpload, 1500);
 }
 async function maybeAutoPullOnFirstRun(){
   if(items.length===0 && transactions.length===0 && deliveries.length===0){
     try{
-      const snap = await cloudDocRef().get();
-      if(snap.exists){
-        if(confirm('Ditemukan data toko di akun Google ini. Muat data tersebut ke perangkat ini?')) await cloudDownload(true);
+      const { data } = await sbClient.from('stores').select('data').eq('id', sbUser.id).maybeSingle();
+      if(data){
+        if(confirm('Ditemukan data toko di akun cloud ini. Muat data tersebut ke perangkat ini?')) await cloudDownload(true);
       }
     }catch(e){ /* ignore */ }
   }
 }
 function renderCloudStatus(){
   const el = document.getElementById('cloudStatus');
-  if(el) el.textContent = fbUser ? ('Terhubung sebagai '+(fbUser.email||fbUser.displayName)) : 'Belum terhubung ke Google';
+  if(el) el.textContent = sbUser ? ('Terhubung sebagai '+sbUser.email) : 'Belum masuk akun cloud';
   renderAuthCloudStatus();
 }
 
@@ -2010,31 +2047,34 @@ function toggleAuthSyncPanel(){
   const body = document.getElementById('authSyncBody');
   const willShow = body.style.display==='none';
   body.style.display = willShow ? 'block' : 'none';
-  document.getElementById('authFbConfigWrap').style.display = fbApp ? 'none' : 'block';
-  document.getElementById('authFbActionsWrap').style.display = fbApp ? 'block' : 'none';
+  document.getElementById('authSbConfigWrap').style.display = sbClient ? 'none' : 'block';
+  document.getElementById('authSbActionsWrap').style.display = sbClient ? 'block' : 'none';
   renderAuthCloudStatus();
 }
-async function saveFirebaseConfigFromAuth(){
-  const raw = document.getElementById('authFbConfigInput').value.trim();
-  let cfg;
-  try{ cfg = JSON.parse(raw); }
-  catch(e){ toast('Format konfigurasi tidak valid (harus JSON)'); return; }
-  await storeSet('firebase-config', cfg);
+async function saveSupabaseConfigFromAuth(){
+  const url = document.getElementById('authSbUrlInput').value.trim();
+  const anonKey = document.getElementById('authSbKeyInput').value.trim();
+  if(!url || !anonKey){ toast('Isi Project URL dan Anon key'); return; }
+  await storeSet('supabase-config', {url, anonKey});
   toast('Konfigurasi disimpan. Memuat ulang...');
   setTimeout(()=>location.reload(), 800);
 }
 async function cloudSignInAndDownloadFromAuth(){
-  if(!fbAuthObj){ toast('Simpan konfigurasi Firebase dulu'); return; }
+  if(!sbClient){ toast('Simpan konfigurasi Supabase dulu'); return; }
+  const email = document.getElementById('authCloudEmail').value.trim();
+  const pass = document.getElementById('authCloudPass').value;
+  if(!email || !pass){ toast('Isi email & kata sandi akun cloud'); return; }
   try{
-    const provider = new firebase.auth.GoogleAuthProvider();
-    await fbAuthObj.signInWithPopup(provider);
-  }catch(e){ toast('Gagal masuk Google: '+e.message); return; }
+    const { data, error } = await sbClient.auth.signInWithPassword({ email, password: pass });
+    if(error) throw error;
+    sbUser = data.session.user;
+  }catch(e){ toast('Gagal masuk: '+e.message); return; }
   renderAuthCloudStatus();
-  if(!fbUser) return;
   try{
-    const snap = await cloudDocRef().get();
-    if(!snap.exists){ toast('Belum ada data toko di cloud untuk akun Google ini'); return; }
-    const d = snap.data();
+    const { data, error } = await sbClient.from('stores').select('data').eq('id', sbUser.id).maybeSingle();
+    if(error) throw error;
+    if(!data){ toast('Belum ada data toko di cloud untuk akun ini'); return; }
+    const d = data.data;
     items = d.items||[];
     transactions = (d.transactions||[]).map(migrateTx);
     deliveries = d.deliveries||[];
@@ -2048,7 +2088,7 @@ async function cloudSignInAndDownloadFromAuth(){
 }
 function renderAuthCloudStatus(){
   const el = document.getElementById('authCloudStatus');
-  if(el) el.textContent = fbUser ? ('Terhubung sebagai '+(fbUser.email||fbUser.displayName)) : 'Belum terhubung ke Google';
+  if(el) el.textContent = sbUser ? ('Terhubung sebagai '+sbUser.email) : 'Belum masuk akun cloud';
 }
 
 /* =========================================================
