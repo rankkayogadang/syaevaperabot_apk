@@ -519,6 +519,16 @@
     <div style="padding:0 18px;">
 
       <div class="settings-block">
+        <h3>Ubah Email Admin</h3>
+        <p class="hint" id="currentAdminEmailHint">Email ini dipakai untuk login sebagai admin.</p>
+        <div class="card">
+          <div class="field"><label>Kata sandi (untuk verifikasi)</label><input type="password" id="setEmailPass"></div>
+          <div class="field"><label>Email baru</label><input type="email" id="setNewEmail" placeholder="admin-baru@tokosyaeva.com"></div>
+          <button class="btn btn-primary btn-block" onclick="changeAdminEmail()">Simpan Email</button>
+        </div>
+      </div>
+
+      <div class="settings-block">
         <h3>Ubah Kata Sandi Admin</h3>
         <p class="hint">Hanya berlaku untuk akun admin utama.</p>
         <div class="card">
@@ -1783,6 +1793,19 @@ function renderReport(){
 /* =========================================================
    SETTINGS (admin only)
 ========================================================= */
+async function changeAdminEmail(){
+  const pass = document.getElementById('setEmailPass').value;
+  const newEmail = document.getElementById('setNewEmail').value.trim();
+  if(pass !== usersData.admin.pass){ toast('Kata sandi salah'); return; }
+  if(!newEmail || !newEmail.includes('@')){ toast('Masukkan email yang valid'); return; }
+  const usedByAccount = usersData.accounts.some(a=>a.email===newEmail);
+  if(usedByAccount){ toast('Email sudah dipakai akun owner/karyawan lain'); return; }
+  usersData.admin.email = newEmail;
+  await persistUsers();
+  document.getElementById('setEmailPass').value='';
+  document.getElementById('setNewEmail').value='';
+  toast('Email admin berhasil diubah menjadi '+newEmail);
+}
 async function changeAdminPassword(){
   const oldPass = document.getElementById('setOldPass').value;
   const newPass = document.getElementById('setNewPass').value;
@@ -1838,6 +1861,8 @@ async function deleteAccount(){
 }
 
 function renderSettings(){
+  const emailHint = document.getElementById('currentAdminEmailHint');
+  if(emailHint) emailHint.textContent = 'Email saat ini: ' + (usersData.admin ? usersData.admin.email : '-');
   const userWrap = document.getElementById('userList');
   userWrap.innerHTML = usersData.accounts.length===0
     ? `<p class="muted">Belum ada akun owner/karyawan. Tambahkan lewat tombol di bawah.</p>`
